@@ -55,6 +55,10 @@ func (k *kvList) Set(v string) error {
 
 const remoteWorkRoot = "task/local/nomm/work"
 
+// Keep each generated `echo ... >> file.b64` batch line below cmd.exe's line
+// length limit while avoiding the huge per-line overhead of tiny Base64 chunks.
+const windowsBase64BatchLineLen = 7000
+
 type uploadedInput struct {
 	rel        string
 	data       []byte
@@ -788,7 +792,7 @@ func buildWindowsWrapper(layout execLayout) string {
 		relPath := windowsBatchEscapePath(in.rel)
 		base64Path := relPath + ".b64"
 		fmt.Fprintf(&b, "break > \"%%WORK_ROOT%%\\%s\"\r\n", base64Path)
-		for _, line := range base64Lines(in.data, 76) {
+		for _, line := range base64Lines(in.data, windowsBase64BatchLineLen) {
 			fmt.Fprintf(&b, "echo %s>> \"%%WORK_ROOT%%\\%s\"\r\n", line, base64Path)
 		}
 		fmt.Fprintf(&b, "certutil -f -decode \"%%WORK_ROOT%%\\%s\" \"%%WORK_ROOT%%\\%s\" >nul || exit /b 1\r\n", base64Path, relPath)
